@@ -14,14 +14,14 @@ Class OO{
     private $chatService;
     public function __construct(){
 
-        $this->chatService = new ChatService();
+
 
         $this->ser = new swoole_websocket_server('0.0.0.0',9502);
         $this->ser->set(
             [
-                'task_worker_num' => 8,
-                'worker_num' =>4,
-                'log_file'  => '/usr/local/var/logs/swoole/swoole.log',
+                'task_worker_num' => 8, //task进程数量
+                'worker_num' =>4,       //worker进程数量，cpu核数的1-4倍
+                'log_file'  => '/usr/local/var/logs/swoole/swoole.log', //文件地址
             ]
         );
         $this->ser->on('open',array($this,"onOpen"));
@@ -30,61 +30,67 @@ Class OO{
         $this->ser->on('task',array($this,"onTask"));
         $this->ser->on('finish',array($this,"onFinish"));
 
+        $this->chatService = new ChatService($this->ser);
+
         $this->ser->start();
     }
 
     public function onOpen($ser,$request){
         //创建连接,在这里check auth,实现登陆后才能聊天
-        echo $request->fd;
+        echo 'fd:'.$request->fd.PHP_EOL;
     }
 
     public function onMessage($ser,$request){
-        var_dump($request->data);
+        var_dump('onMessage:'.$request->data.PHP_EOL);
         $ser->task($request->data);
     }
 
     public function onClose($ser,$fd){
         //关闭连接
-        echo $fd.'close';
+        $ser->task('{"type":"logout"}');
     }
 
+    /**
+     * @param $ser
+     * @param $taskId
+     * @param $srcWorkId
+     * @param $data
+     * @return array|false|string
+     */
     public function onTask($ser,$taskId,$srcWorkId,$data){
         $data = json_decode($data,true);
         switch ($data['type']){
-            case 'register':
-                $result = $this->chatService->register($data);
-                $ret = [
-                    'code' => 0,
-                    'msg'  => 'OK',
-                    'data' => $result,
-                ];
-
-                $ret = json_encode($ret);
-                foreach ($ser->connections as $fd){
-                    $ser->push($fd,$ret);
-                }
-
-                break;
             case 'login':
-                $result = $this->chatService->login($data);
+                $result = $this->chatService->login($srcWorkId,$data);
                 break;
             case 'logout':
-                $result = $this->chatService->logout($data);
+                $result = $this->chatService->logout($srcWorkId);
                 break;
             case 'send_msg':
-                $result = $this->chatService->sendMsg($data);
+                $result = $this->chatService->sendMsg($srcWorkId,$data);
                 break;
             case 'change_room':
-                $result = $this->chatService->changeRoom($data);
+                $result = $this->chatService->changeRoom($srcWorkId,$data);
                 break;
             default:
+                $result = [
+                    'msg_info' => [
+                        'from_id' => $srcWorkId,
+                        'from_name' => '系统',
+                        'type' => 'system',
+                        'text' => '位置操作',
+                    ],
+                    'type' => 'msg_info',
+                ];
                 break;
         }
 
+        return $result;
     }
 
     public function onFinish($ser,$taskId,$data){
-        echo 'task_id:'.$taskId.',data:'.$data;
+
+        echo 'task_id:'.$taskId.',data:'.json_encode($data).PHP_EOL;
     }
 
 }
