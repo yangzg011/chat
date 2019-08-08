@@ -12,7 +12,7 @@
 </head>
 <body>
 <div style="width: 800px;height: 600px;margin: 30px auto;text-align: center">
-    <h1>websocket聊天室</h1>
+    <h1>聊天室</h1>
     <div style="width: 800px;border: 1px solid gray;height: 300px;">
         <div style="width: 200px;height: 300px;float: left;text-align: left;">
             <p><span>当前在线:</span><span id="user_num">0</span></p>
@@ -32,12 +32,15 @@
 
 <script type="text/javascript">
     // 存储用户名到全局变量,握手成功后发送给服务器
-    var ws = new WebSocket("ws://localhost:9502");
+    let date = new Date();
+    let name = prompt('输入你的用户名称:','user:'+date.getHours()+date.getMinutes()+date.getSeconds());
+
+    let ws = new WebSocket("ws://101.132.189.134:9502");
     ws.onopen = function () {
         let data = {}
         console.log("系统消息：建立连接成功");
         let date = new Date();
-        data.name = 'user:'+date.getHours()+date.getMinutes()+date.getSeconds();
+        data.name = name;
         data.token = date.getDate();
         data.type = 'login';
         wsSend(data)
@@ -69,11 +72,11 @@
 
     function sendMessage() {
         let data = {}
-        let date = new Date();
         data.name = 'user:'+date.getHours()+date.getMinutes()+date.getSeconds()+'';
         data.token = date.getDate();
         data.type = 'send_msg';
         data.msg = document.getElementById("msg_box").value;
+        document.getElementById("msg_box").value = "";
         wsSend(data);
     }
 

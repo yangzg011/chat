@@ -15,6 +15,7 @@ Class ChatService{
         $this->ser = $ser;
 
         $this->table = new Swoole\Table(1024);
+        $this->table->column('id', swoole_table::TYPE_INT, 16);
         $this->table->column('name', swoole_table::TYPE_STRING, 64);
         $this->table->column('token', swoole_table::TYPE_STRING,64);
 
@@ -23,11 +24,11 @@ Class ChatService{
     }
 
 
-    public function sendMsg($srcWorkId,$data){
-        $user = $this->table->get($srcWorkId);
+    public function sendMsg($fd,$data){
+        $user = $this->table->get($fd);
         $data = [
             'msg_info' => [
-                'from_id' => $srcWorkId,
+                'from_id' => $fd,
                 'from_name' => $user['name'],
                 'type' => 'user',
                 'text' => $data['msg'],
@@ -37,19 +38,19 @@ Class ChatService{
         $this->wsSend($data);
     }
 
-    public function changeRoom($srcWorkId,$data){
+    public function changeRoom($fd,$data){
         return __FUNCTION__;
     }
 
-    public function login($srcWorkId,$data){
+    public function login($fd,$data){
         $user = [
             'name' => $data['name'],
             'token' => $data['token'],
         ];
-        $this->table->set($srcWorkId,$user);
+        $this->table->set($fd,$user);
         $data = [
             'msg_info' => [
-                'from_id' => $srcWorkId,
+                'from_id' => $fd,
                 'from_name' => '系统',
                 'type' => 'system',
                 'text' => $data['name'].'加入房间',
@@ -68,14 +69,14 @@ Class ChatService{
         $this->wsSend($data);
     }
 
-    public function logout($srcWorkId){
+    public function logout($fd){
         //从房间踢出
-        $user = $this->table->get($srcWorkId);
-        $this->table->del($srcWorkId);
+        $user = $this->table->get($fd);
+        $this->table->del($fd);
         //构建返回数据
         $data = [
             'msg_info' => [
-                'from_id' => $srcWorkId,
+                'from_id' => $fd,
                 'from_name' => '系统',
                 'type' => 'system',
                 'text' => $user['name'].'离开房间',

@@ -42,12 +42,12 @@ Class OO{
 
     public function onMessage($ser,$request){
         var_dump('onMessage:'.$request->data.PHP_EOL);
-        $ser->task($request->data);
+        $ser->task(['param'=>$request->data,'fd'=>$request->fd]);
     }
 
     public function onClose($ser,$fd){
         //关闭连接
-        $ser->task('{"type":"logout"}');
+        $ser->task(['param' => '{"type":"logout"}','fd'=> $fd]);
     }
 
     /**
@@ -58,24 +58,24 @@ Class OO{
      * @return array|false|string
      */
     public function onTask($ser,$taskId,$srcWorkId,$data){
-        $data = json_decode($data,true);
-        switch ($data['type']){
+        $param = json_decode($data['param'],true);
+        switch ($param['type']){
             case 'login':
-                $result = $this->chatService->login($srcWorkId,$data);
+                $result = $this->chatService->login($data['fd'],$param);
                 break;
             case 'logout':
-                $result = $this->chatService->logout($srcWorkId);
+                $result = $this->chatService->logout($data['fd']);
                 break;
             case 'send_msg':
-                $result = $this->chatService->sendMsg($srcWorkId,$data);
+                $result = $this->chatService->sendMsg($data['fd'],$param);
                 break;
             case 'change_room':
-                $result = $this->chatService->changeRoom($srcWorkId,$data);
+                $result = $this->chatService->changeRoom($data['fd'],$param);
                 break;
             default:
                 $result = [
                     'msg_info' => [
-                        'from_id' => $srcWorkId,
+                        'from_id' => $data['fd'],
                         'from_name' => '系统',
                         'type' => 'system',
                         'text' => '位置操作',
