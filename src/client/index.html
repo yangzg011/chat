@@ -11,21 +11,28 @@
     </style>
 </head>
 <body>
-<div style="width: 800px;height: 600px;margin: 30px auto;text-align: center">
-    <h1>聊天室</h1>
-    <div style="width: 800px;border: 1px solid gray;height: 300px;">
-        <div style="width: 200px;height: 300px;float: left;text-align: left;">
-            <p><span>当前在线:</span><span id="user_num">0</span></p>
-            <div id="user_list" style="overflow: auto;">
-
+<div style="width: 1000px;height: 800px;margin: 80px auto">
+    <div style="width: 800px;height: 600px;margin: 30px auto;text-align: center">
+        <h1>聊天室</h1>
+        <div style="width: 800px;border: 1px solid gray;height: 300px;">
+            <div style="width: 100px;height: 300px;float: left;text-align: left;">
+                <p><span>房间列表:</span><span id="room_num">0</span></p>
+                <div id="room_list" style="overflow: auto;">
+                </div>
+            </div>
+            <div id="msg_list"
+                 style="width: 598px;border:  1px solid gray; height: 300px;overflow: scroll;float: left;">
+            </div>
+            <div style="width: 100px;height: 300px;float: left;text-align: left;">
+                <p><span>当前在线:</span><span id="user_num">0</span></p>
+                <div id="user_list" style="overflow: auto;">
+                </div>
             </div>
         </div>
-        <div id="msg_list" style="width: 598px;border:  1px solid gray; height: 300px;overflow: scroll;float: left;">
-        </div>
+        <br>
+        <textarea id="msg_box" rows="6" cols="50"></textarea><br>
+        <input type="button" value="发送" onclick="sendMessage()">
     </div>
-    <br>
-    <textarea id="msg_box" rows="6" cols="50"></textarea><br>
-    <input type="button" value="发送" onclick="sendMessage()">
 </div>
 </body>
 </html>
@@ -35,7 +42,8 @@
     let date = new Date();
     let name = prompt('输入你的用户名称:','user:'+date.getHours()+date.getMinutes()+date.getSeconds());
 
-    let ws = new WebSocket("ws://101.132.189.134:9502");
+    //let ws = new WebSocket("ws://101.132.189.134:9502");
+    let ws = new WebSocket("ws://localhost:9502");
     ws.onopen = function () {
         let data = {}
         console.log("系统消息：建立连接成功");
@@ -54,6 +62,12 @@
                 break;
             case 'user_info':
                 recieveUser(msg.data.user_info)
+                break;
+            case 'room_info':
+                recieveRoom(msg.data.room_info)
+                break;
+            case 'change_room_info':
+                changeRoom(msg.data.change_room_info)
                 break;
             default:
                 break;
@@ -80,6 +94,15 @@
         wsSend(data);
     }
 
+    function changeRoom(room_id) {
+        let data = {}
+        data.type = 'change_room_info';
+        data.room_id = room_id;
+        
+
+        wsSend(data);
+    }
+
     function recieveMsg(msg) {
         let data = msg.from_name+':'+msg.text;
         document.getElementById("msg_list").innerHTML += "<div>"+data+"</div>";
@@ -90,6 +113,14 @@
         document.getElementById("user_list").innerHTML = "";
         for(let i = 0;i< user_info.user_list.length;i++){
             document.getElementById("user_list").innerHTML += "<div>"+user_info.user_list[i]+"</div>";
+        }
+    }
+    function recieveRoom(room_info) {
+        document.getElementById("room_num").innerHTML = room_info.count;
+        document.getElementById("room_list").innerHTML = "";
+        console.log(room_info.room_list);
+        for(let index in room_info.room_list){
+            document.getElementById("room_list").innerHTML += "<button onclick=\"changeRoom("+index+")\">"+"房间:"+room_info.room_list[index]+"</button>";
         }
     }
 </script>

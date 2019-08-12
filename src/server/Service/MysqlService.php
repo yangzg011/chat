@@ -8,117 +8,64 @@
 
 class MysqlService
 {
+    //协程mysql
+    public static $instance;
 
-    private static $instance;
-    private $db;
+    private $pool;
+    private $config;
 
-
-    private function __construct()
+    public function __construct()
     {
-        $env = include(__DIR__ . '/../conf/db.php');
-        $config = $env['r'];
-        $this->db = self::conn($config);
+        $env = include_once("../conf/db.php");
+        $this->config = $env['r'];
+        $this->pool = new chan($this->config['size']);
+        $this->init();
     }
 
     /**
-     * @return MysqlService
+     * 初始化连接池
      */
-    public static function getInstance()
-    {
-        if (self::$instance instanceof self) {
+    private function init(){
+        for ($i=0;$i<$this->config['size'];$i++){
+            go(function () use ($i){
+                try{
+                    $mysql = new Co\Mysql;
+                    $mysql->connect([
+                        'host' => $this->config['host'],
+                        'port' => $this->config['port'],
+                        'user' => $this->config['user'],
+                        'password' => $this->config['password'],
+                        'database' => $this->config['dbname'],
+                    ]);
+
+                    if ($mysql){
+                        $this->pool->push($mysql);
+                    } else{
+                        echo "第{$i}个redis链接失败";
+                    }
+                } catch (\Exception $e){
+                    echo "第{$i}个redis链接失败,原因:".$e->getMessage();
+                }
+            });
+        }
+    }
+
+    public static function getInstance(){
+        if (self::$instance instanceof self){
             return self::$instance;
-        } else {
+        } else{
             self::$instance = new self;
             return self::$instance;
         }
     }
 
-
-    //连接到数据库
-    private static function conn($config)
-    {
-        try {
-            $conn = new PDO($config['dsn'], $config['user'], $config['password']);   //数据库地址和密码等
-
-        } catch (Exception $e) {
-            die($e->getMessage());
-        }
-        return $conn;
-
+    public function getMysql(){
+        $mysql = $this->pool->pop($this->config['timeout']);
+        return $mysql;
     }
 
-    public function select($sql,$param = [])
-    {
-        $stmt = $this->db->prepare($sql);
-        if($stmt->execute($param)){
-            $result = $stmt->fetchAll();
-        }else{
-            die(PHP_EOL.$this->db->errorInfo());
-        }
-        return $result;
-    }
-
-    public function update($sql,$param = [])
-    {
-        $stmt = $this->db->prepare($sql);
-        if($stmt->execute($param)){
-            $result = $stmt->rowCount();
-        }else{
-            die(PHP_EOL.$this->db->errorInfo());
-        }
-        return $result;
-    }
-
-
-    public function insert($table,$param = [])
-    {
-        $sql = "insert into {$table} (%s) values(%s)";
-        $column = array_keys($param);
-        $columnStr = implode(',',$column);
-        $values = '?';
-        for ($i = 0;$i<count($param)-1;$i++){
-            $values .= ',?';
-        }
-        $sql = sprintf($sql,$columnStr,$values);
-        var_dump($sql);die;
-        $stmt = $this->db->prepare($sql);
-        try{
-            if($stmt->execute($param)){
-                $id = $this->db->lastInsertId();
-            }else{
-                die(PHP_EOL.$this->db->errorInfo());
-            }
-        }catch (Exception $e){
-            die(PHP_EOL.$e->getMessage());
-        }
-
-        return $id;
-    }
-
-    public function delete($sql,$param = [])
-    {
-        $stmt = $this->db->prepare($sql);
-        if($stmt->execute($param)){
-            $result = $stmt->rowCount();
-        }else{
-            die(PHP_EOL.$this->db->errorInfo());
-        }
-        return $result;
-    }
-
-    public function transaction(callable $callback)
-    {
-        //开启一个事务，在事务中执行回调函数,返回回调函数的值
-        try{
-            $this->db->beginTransaction();
-            $result = $callback();
-            $this->db->commit();
-            return $result;
-        }catch (Exception $e){
-            $this->db->rollBack();
-            return false;
-        }
+    public function freeMysql($mysql){
+        $this->pool->pop($mysql);
+        return true;
     }
 }
-
-

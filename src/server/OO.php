@@ -41,8 +41,11 @@ Class OO{
     }
 
     public function onMessage($ser,$request){
-        var_dump('onMessage:'.$request->data.PHP_EOL);
-        $ser->task(['param'=>$request->data,'fd'=>$request->fd]);
+        $data = [
+            'param' => $request->data,
+            'fd'=>$request->fd,
+        ];
+        $ser->task($data);
     }
 
     public function onClose($ser,$fd){
