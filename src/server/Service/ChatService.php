@@ -5,7 +5,7 @@
  * Date: 2019/4/8
  * Time: 下午7:18
  */
-require_once __DIR__ . '/AsyMysqlService.php';
+require_once __DIR__ . '/MysqlService.php.php';
 require_once __DIR__ . '/RedisService.php';
 
 Class ChatService
