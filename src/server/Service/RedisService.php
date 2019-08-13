@@ -24,6 +24,7 @@ class RedisService
                     $redis = new Co\Redis;
                     $redis->connect($this->config['host'], $this->config['port']);
                     $ret = $redis->auth($this->config['password']);
+                    $redis->setOptions(['compatibility_mode' => 'true']);
                     if ($ret){
                         $this->pool->push($redis);
                     } else{

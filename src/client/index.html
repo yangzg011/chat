@@ -58,6 +58,7 @@
         let msg = JSON.parse(data.data);
         switch (msg.data.type) {
             case 'msg_info':
+                console.log(msg.data);
                 recieveMsg(msg.data.msg_info);
                 break;
             case 'user_info':

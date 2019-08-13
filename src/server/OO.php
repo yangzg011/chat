@@ -81,7 +81,7 @@ Class OO{
                         'from_id' => $data['fd'],
                         'from_name' => '系统',
                         'type' => 'system',
-                        'text' => '位置操作',
+                        'text' => '未知操作',
                     ],
                     'type' => 'msg_info',
                 ];

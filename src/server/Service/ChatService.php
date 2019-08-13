@@ -5,20 +5,17 @@
  * Date: 2019/4/8
  * Time: 下午7:18
  */
-require_once __DIR__ . '/MysqlService.php.php';
+require_once __DIR__ . '/MysqlService.php';
 require_once __DIR__ . '/RedisService.php';
 
 Class ChatService
 {
     private $table;
-    private $redis;
     private $ser;
 
     public function __construct($ser)
     {
         $this->ser = $ser;
-
-        $this->redis = RedisService::getInstance()->redis;
 
         $this->table = new Swoole\Table(1024);
         $this->table->column('fd', swoole_table::TYPE_INT, 16);
@@ -108,16 +105,21 @@ Class ChatService
 
     public function getRoomList()
     {
-        $roomList = $this->redis->hgetall('chat:room:list');
-        $data = [
-            'room_info' => [
-                'count' => count($roomList),
-                'room_list' => $roomList,
-            ],
-            'type' => 'room_info',
-        ];
-        $this->wsSend($data);
-        return true;
+        go(function (){
+            $redis = RedisService::getInstance()->getRedis();
+            $roomList = $redis->request(['hgetall','chat:room:list']);
+            RedisService::getInstance()->freeRedis($redis);
+            $data = [
+                'room_info' => [
+                    'count' => count($roomList),
+                    'room_list' => $roomList,
+                ],
+                'type' => 'room_info',
+            ];
+            $this->wsSend($data);
+            return true;
+        });
+
     }
 
     public function leaveRoom($fd)
@@ -134,7 +136,9 @@ Class ChatService
             ],
             'type' => 'msg_info',
         ];
-        $this->wsSend($data);
+        $fds = $this->getRoomUser($user['room_id']);
+        $this->wsSendSome($fds,$data);
+
         return true;
     }
 
@@ -144,7 +148,7 @@ Class ChatService
             'fd' => $fd,
             'name' => $data['name'],
             'token' => $data['token'],
-            'room_id' => $data['room_id'],
+            'room_id' => $data['room_id'] ?? 0,
         ];
         $this->table->set($fd, $user);
         $data = [
@@ -153,11 +157,36 @@ Class ChatService
                 'type' => 'system',
                 'text' => $data['name'] . '进来了',
             ],
-            'type' => 'msg_info',
+            'type' => 'change_room_info',
         ];
-        $this->wsSend($data);
+        $fds = $this->getRoomUser($user['room_id']);
+
+        $this->wsSendSome($fds,$data);
         return true;
     }
 
+    public function getRoomUser($roomId){
+        $fds = [];
+        foreach ($this->table as $key => $row){
+            if ($roomId == $row['room_id']){
+                $fds[] = $key;
+            }
+        }
+        return $fds;
+    }
 
+    public function wsSendSome($fds,$data)
+    {
+        $ret = [
+            'code' => 0,
+            'msg' => 'OK',
+            'data' => $data,
+        ];
+        $ret = json_encode($ret);
+        foreach ($fds as $fd) {
+            $this->ser->push($fd, $ret);
+        }
+        return true;
+    }
 }
+
